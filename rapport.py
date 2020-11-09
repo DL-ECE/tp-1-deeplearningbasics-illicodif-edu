@@ -292,10 +292,10 @@ To have all the point your neural network needs to have a Test accuracy > 92 % !
 """
 
 minibatch_size = 50
-nepoch = 15 
+nepoch = 15
 learning_rate = 0.01
 
-ffnn = FFNN(config=[784, 100, 100, 10], minibatch_size=minibatch_size, learning_rate=learning_rate)
+ffnn = FFNN(config=[784, 255, 255, 10], minibatch_size=minibatch_size, learning_rate=learning_rate)
 
 assert X_train.shape[0] % minibatch_size == 0
 assert X_test.shape[0] % minibatch_size == 0
@@ -319,7 +319,7 @@ X_demo = X_test[:nsample]
 y_demo = ffnn.forward_pass(X_demo)
 y_true = y_test[:nsample]
 
-index_to_plot = 4
+index_to_plot = 45
 plot_one_image(X_demo, y_true, index_to_plot)
 
 # Compare to the prediction 
@@ -358,10 +358,15 @@ Also explain how the neural network behave when changing them ?
 TODO
 """
 
-## minibatch_size : 
-##
 ## nepoch : j'ai d'abord essayé avec 10, puis 20. J'ai ensuite remarqué que la progression était beaucoup plus lente à partir de 15 j'ai donc choisi ce paramètre afin de supprimer les itérations inutiles.
+## Ce paramètre est le nombre d'entraînement que va réaliser le réseau 
 ##
-## config :
+## learning_rate : j'ai effectué de nombreux tests et j'ai remarqué que mes résultats étaient généralement moins bons avec un learning rate > 0.01. J'ai donc gardé ma valeur de 0.01
+## Ce paramètre influence la rapidité avec laquelle nous allons modifier les poids de notre réseau en fonction de l'erreur. Mon learning_rate est assez faible je sais donc que j'ai donc choisi de ne garder les configurations que si je dépasse les 75% d'accuracy au premier training. 
 ##
-## learning_rate : j'ai effectué de nombreux tests et j'ai remarqué que mes résultats étaient généralement moins bon avec un learning rate > 0.01. J'ai donc gardé ma valeur de 0.01
+## minibatch_size : J'ai d'abord commencé par faire la liste de toutes les valeurs possibles (1, 2, 4, 5, 7, 10, 14, 20, 25, 28, 35, 50, 70, 100, 140, 175, 350, 700).
+## J'ai ensuite testé plusieurs valeurs avec des valeurs de config aléatoire. Afin de ne pas me perdre j'ai réalisé un tableau excel dans lequel j'ai noté mes paramètres ainsi que le pourcentage du test accuracy.
+## Ce paramètre permet de découper le trainning set en plus petit paquet lors de la phase de training. 
+##
+## config : Dès que j'ai essayé une nouvelle valeur pour le minibatch_size, j'ai essayé 20, 50, 100, 255 pour la config. Si l'une des configurations me donne de bons résultats je vais alors essayer différentes valeurs proches de cette dernière.
+## Ce paramètre permet de sélectionner le nombre de neurones par couches
