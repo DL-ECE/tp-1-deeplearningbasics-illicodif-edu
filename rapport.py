@@ -106,9 +106,10 @@ For example, a `[0,1,9]` vector will become the following matrix:
   [0,0,0,0,0,0,0,0,0,1]]`
 """
 
-def target_to_one_hot(target: np.array) -> np.array: 
-    one_hot_matrix = np.zeros((target.size, target.max()+1)) 
-    one_hot_matrix[np.arange(target.size),target] = 1
+def target_to_one_hot(target: np.array) -> np.array:
+    one_hot_matrix = np.zeros((target.shape[0], 10))
+    target = target.astype(int)
+    one_hot_matrix[np.arange(len(target)), target] = 1
     return one_hot_matrix
 
 """## Useful functions (3 pts)
@@ -118,15 +119,19 @@ Implement the sigmoid function, its derivative and the softmax function:
 
 def sigmoid(M: np.array) -> np.array:
     """Apply a sigmoid to the input array"""
-    return (1/(1+np.exp(-M)))
+    sig = (1/(1+np.exp(-M)))
+    return sig
 
 def d_sigmoid(M: np.array)-> np.array:
     """Compute the derivative of the sigmoid""" 
-    return (sigmoid(M) * (1-sigmoid(M)))
+    d_sig = (sigmoid(M) * (1-sigmoid(M)))
+    return d_sig
 
 def softmax(X: np.array)-> np.array:
     """Apply a softmax to the input array"""
-    return np.exp(X)/(np.sum(np.exp(X)))
+    X_exp=np.exp(X)
+    X_sum=np.sum(X_exp,axis=1).reshape(-1,1)
+    return X_exp/X_sum
 
 """## Feed forward NN
 
@@ -165,7 +170,7 @@ class FFNN:
         input_data = Layer()
         # TODO: initialize the Z matrix with the a matrix containing only zeros
         # its shape should be (minibatch_size, config[0])
-        input_data.Z = None
+        input_data.Z = np.zeros((minibatch_size, config[0]), dtype=int)
         self.layers.append(input_data)
                                         
         for i in range(1, len(config)):
@@ -174,34 +179,39 @@ class FFNN:
             nlines_prev, ncols_prev = self.layers[i - 1].Z.shape
             # TODO: initilize the weight matrix W in the layer with a random normal distribution
             # its shape should be (ncols_prev, nnodes)
-            layer.W = None
+            layer.W = np.random.normal(0,1, size=(ncols_prev, nnodes))
             # TODO: initilize the matrix Z in the layer with a matrix containing only zeros
             # its shape should be (nlines_prev, nnodes)
-            layer.Z = None
+            layer.Z = np.zeros((nlines_prev, nnodes))
             # TODO: use the sigmoid activation function
-            layer.activation = None
+            layer.activation = sigmoid
             self.layers.append(layer)
         # TODO: Your last layer activation should be a softmax
-        self.layers[-1].activation = None
+        self.layers[-1].activation = softmax
         
     def one_step_forward(self, signal: np.array, cur_layer: Layer)-> np.array:
         # Compute the F and Z matrix for the current layer and return Z
         
         # TODO: Compute the dot product betzeen the signal and the current layer W matrix
-        S = None
+        S = np.dot(signal, cur_layer.W)
         # TODO: Compute the F matrix of the current layer
-        cur_layer.F = None
+        cur_layer.F = d_sigmoid(S).transpose()
         # Compute the activation od the current layer
-        cur_layer.Z = None
+        cur_layer.Z = cur_layer.activation(S)
         return cur_layer.Z
        
     def forward_pass(self, input_data: np.array)-> np.array:
         # TODO: perform the whole forward pass using the on_step_forward function
-        pass
+        self.layers[0].Z = input_data
+        for i in range(1, self.nlayers):
+          self.layers[i].Z = self.one_step_forward(self.layers[i-1].Z, self.layers[i])
+  
+        return self.layers[-1].Z
+
     
     def one_step_backward(self, prev_layer: Layer, cur_layer: Layer)-> Layer:
         # TODO: Compute the D matrix of the current layer using the previous layer and return the current layer
-        Di = None
+        Di = cur_layer.F * np.dot(prev_layer.W, prev_layer.D)
         cur_layer.D = Di
         return cur_layer
         
@@ -209,31 +219,40 @@ class FFNN:
         self.layers[-1].D = D_out.T
         # TODO: Compute the D matrix for all the layers (excluding the first one which corresponds to the input itself)
         # (you should only use self.layers[1:])
-        pass
+        for i in range(len(self.layers[1:])-1, 0, -1):
+          self.layers[i] = self.one_step_backward(self.layers[i+1], self.layers[i])
+        
     
     def update_weights(self, cur_layer: Layer, next_layer: Layer)-> Layer:
         # TODO: Update the W matrix of the next_layer using the current_layer and the learning rate
         # and return the next_layer
-        pass
+        next_layer.W = next_layer.W - self.learning_rate * ((np.dot(next_layer.D, cur_layer.Z)).T)
+        return next_layer
     
     def update_all_weights(self)-> None:
         # TODO: Update all W matrix using the update_weights function
-        pass
+        for i in range(0, (self.nlayers) - 1):
+          self.layers[i+1] = self.update_weights(self.layers[i], self.layers[i+1])
         
     def get_error(self, y_pred: np.array, y_batch: np.array)-> float:
         # TODO: return the accuracy on the predictions
         # the accuracy should be in the [0.0, 1.0] range
-        pass
+        sum = 0
+        for i in range(0, len(y_pred)):
+          if (np.argmax(y_pred[i]) == np.argmax(y_batch[i])):
+            sum += 1
+        return sum/len(y_pred)
     
     def get_test_error(self, X: np.array, y: np.array)-> float:
         # TODO: Compute the accuracy using the get_error function
+        # use np.argmax, retourne l'index de la valeur max du vecteur
         nbatch = X.shape[0]
         error_sum = 0.0
         for i in range(0, nbatch):
             X_batch = X[i,:,:].reshape(self.minibatch_size, -1)
             y_batch = y[i,:,:].reshape(self.minibatch_size, -1)           
             # TODO: get y_pred using the forward pass
-            error_sum += None
+            error_sum += self.get_error(self.forward_pass(X_batch), y_batch)
         return error_sum / nbatch
             
         
@@ -245,7 +264,7 @@ class FFNN:
         y_test = y_test.reshape(-1, self.minibatch_size, 10)
         
         # TODO: Get the number of batch based on X_train's shape
-        nbatch = None
+        nbatch = X_train.shape[0]
         error_test = 0.0
         for epoch in range(0, nepoch):
             error_sum_train = 0.0
@@ -272,16 +291,21 @@ It's on 12 points because there is a lot of functions to fill but also we want t
 To have all the point your neural network needs to have a Test accuracy > 92 % !!
 """
 
-minibatch_size = 5 
-nepoch = 10
+minibatch_size = 50
+nepoch = 15 
 learning_rate = 0.01
 
-ffnn = FFNN(config=[784, 3, 3, 10], minibatch_size=minibatch_size, learning_rate=learning_rate)
+ffnn = FFNN(config=[784, 100, 100, 10], minibatch_size=minibatch_size, learning_rate=learning_rate)
 
 assert X_train.shape[0] % minibatch_size == 0
 assert X_test.shape[0] % minibatch_size == 0
 
-err = ffnn.train(nepoch, X_train, y_train, X_test, y_test)
+X_train_norm = normalize_data(X_train)
+X_test_norm = normalize_data(X_test)
+y_train_hot = target_to_one_hot(y_train)
+y_test_hot = target_to_one_hot(y_test)
+
+err = ffnn.train(nepoch, X_train_norm, y_train_hot, X_test_norm, y_test_hot)
 
 """## Error analysis (2 pts)
 
@@ -291,25 +315,32 @@ It will help us understand why the neural network failed sometimes to classify i
 """
 
 nsample = 1000
-X_demo = X_test[:nsample,:]
+X_demo = X_test[:nsample]
 y_demo = ffnn.forward_pass(X_demo)
-y_true = y_test[:nsample,:]
+y_true = y_test[:nsample]
 
-index_to_plot = 50 
+index_to_plot = 4
 plot_one_image(X_demo, y_true, index_to_plot)
 
 # Compare to the prediction 
-prediction = np.argmax(y_demo[index_to_plot,:])
-true_target = np.argmax(y_true[index_to_plot,:])
+prediction = np.argmax(y_demo[index_to_plot])
+true_target = np.argmax(y_true[index_to_plot])
 
-# is it the same number ?
+# is it the same number ? 
+print("The prediction is " + str(prediction))
+print("The true target is " + str(true_target))
 
 # loop arround the demo test set and try to find a miss prediction
+miss_pred = 0
 for i in range(0, nsample):   
-    prediction = None # Todo
-    true_target = None # Todo
+    prediction = str(np.argmax(y_demo[i])) # Todo
+    true_target = y_true[i] # Todo
     if prediction != true_target:
-        # TODO
+        # TODO. ADD PASS HERE IF BUG IN AUTOCORRECT
+        miss_pred += 1
+        pass
+        
+print(miss_pred)
 
 """## Open analysis
 
@@ -327,3 +358,10 @@ Also explain how the neural network behave when changing them ?
 TODO
 """
 
+## minibatch_size : 
+##
+## nepoch : j'ai d'abord essayé avec 10, puis 20. J'ai ensuite remarqué que la progression était beaucoup plus lente à partir de 15 j'ai donc choisi ce paramètre afin de supprimer les itérations inutiles.
+##
+## config :
+##
+## learning_rate : j'ai effectué de nombreux tests et j'ai remarqué que mes résultats étaient généralement moins bon avec un learning rate > 0.01. J'ai donc gardé ma valeur de 0.01
