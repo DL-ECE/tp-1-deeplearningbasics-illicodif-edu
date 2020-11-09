@@ -90,7 +90,7 @@ assert X_test_length == y_test_length and X_test_length == 23100
 
 # It's important to normalize the data before feeding it into the neural network
 def normalize_data(dataset: np.array) -> np.array:
-    normalized_dataset = ((dataset - 255.)/255.)
+    normalized_dataset = dataset / 255
     return normalized_dataset
 
 """It's also important to find a good representation of the target.
